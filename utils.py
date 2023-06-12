@@ -8,8 +8,5 @@ def powerset(s: set) -> set[tuple]:
     return ps
 
 
-       
-
-
 if __name__ == "__main__":
     print(powerset({1, 2, 3}))

@@ -199,11 +199,11 @@ class E_NFA:
         q0 = self.__q0
         F = set(q for q in Q if len(self.__epsilon_reachable[q] & self.__F) >= 1)
         return NFA(Sigma, Q, transitions, q0, F)
-    
+
     def to_DFA(self) -> DFA:
         nfa = self.to_NFA()
         dfa = nfa.to_DFA()
-        return nfa
+        return dfa
 
 
 if __name__ == "__main__":
