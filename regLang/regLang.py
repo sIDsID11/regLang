@@ -1,6 +1,7 @@
 from __future__ import annotations
 from functools import reduce
 from utils import powerset
+from typing import Optional
 
 
 class DFA:
@@ -11,6 +12,26 @@ class DFA:
         self.__q0 = q0
         self.__F = F
         self.__validate()
+
+    @property
+    def Sigma(self) -> set[str]:
+        return self.__Sigma
+
+    @property
+    def Q(self) -> set[str]:
+        return self.__Q
+
+    @property
+    def transitions(self) -> dict[tuple[str, str], str]:
+        return self.__transitions
+
+    @property
+    def q0(self) -> str:
+        return self.__q0
+
+    @property
+    def F(self) -> set[str]:
+        return self.__F
 
     def __validate(self):
         # valid stating state
@@ -56,6 +77,39 @@ class DFA:
         e_nfa = nfa.to_E_NFA()
         return e_nfa
 
+    def renameStates(self, Q_: set[str], inplace: bool = False) -> Optional[DFA]:
+        if len(self.__Q) != len(Q_):
+            raise ValueError(f"Number of renamed states ({len(Q_)}) must be same than number of old states ({len(self.__Q)})")
+        mapping = {q: q_ for (q, q_) in zip(self.__Q, Q_)}
+        q0 = mapping[self.__q0]
+        F = {mapping[q] for q in self.__F}
+        transitions = dict()
+        for ((q, a), qx) in self.__transitions.items():
+            transitions[(mapping[q], a)] = mapping[qx]
+        if not inplace:
+            Sigma = self.__Sigma
+            Q = Q_
+            return DFA(Sigma, Q, transitions, q0, F)
+        self.__Q = Q_
+        self.__q0 = q0
+        self.__F = F
+        self.__transitions = transitions
+
+    def union(self, other: DFA) -> E_NFA:
+        fa1 = self.renameStates({f"q{i}" for i in range(len(self.__Q))})
+        fa1 = fa1.to_NFA()
+        fa2 = other.renameStates({f"p{i}" for i in range(len(other.Q))})
+        fa2 = fa2.to_NFA()
+        Sigma = fa1.Sigma | fa2.Sigma
+        Q = fa1.Q | fa2.Q | {"s"}
+        transitions = dict()
+        transitions.update(fa1.transitions)
+        transitions.update(fa2.transitions)
+        transitions["s", ""] = {fa1.q0, fa2.q0}
+        q0 = "s"
+        F = fa1.F | fa2.F
+        return E_NFA(Sigma, Q, transitions, q0, F)
+
 
 class NFA:
     def __init__(self, Sigma: set[str], Q: set[str], transitions: dict[tuple[str, str], set(str)], q0: str, F: set[str]):
@@ -65,6 +119,26 @@ class NFA:
         self.__q0 = q0
         self.__F = F
         self.__validate()
+
+    @property
+    def Sigma(self) -> set[str]:
+        return self.__Sigma
+
+    @property
+    def Q(self) -> set[str]:
+        return self.__Q
+
+    @property
+    def transitions(self) -> dict[tuple[str, str], str]:
+        return self.__transitions
+
+    @property
+    def q0(self) -> str:
+        return self.__q0
+
+    @property
+    def F(self) -> set[str]:
+        return self.__F
 
     def __validate(self):
         # valid stating state
@@ -121,6 +195,37 @@ class NFA:
         F = self.__F
         return E_NFA(Sigma, Q, transitions, q0, F)
 
+    def renameStates(self, Q_: set[str], inplace: bool = False) -> Optional[NFA]:
+        if len(self.__Q) != len(Q_):
+            raise ValueError(f"Number of renamed states ({len(Q_)}) must be same than number of old states ({len(self.__Q)})")
+        mapping = {q: q_ for (q, q_) in zip(self.__Q, Q_)}
+        q0 = mapping[self.__q0]
+        F = {mapping[q] for q in self.__F}
+        transitions = dict()
+        for ((q, a), qs) in self.__transitions.items():
+            transitions[(mapping[q], a)] = {mapping[qx] for qx in qs}
+        if not inplace:
+            Sigma = self.__Sigma
+            Q = Q_
+            return NFA(Sigma, Q, transitions, q0, F)
+        self.__Q = Q_
+        self.__q0 = q0
+        self.__F = F
+        self.__transitions = transitions
+
+    def union(self, other: NFA) -> E_NFA:
+        fa1 = self.renameStates({f"q{i}" for i in range(len(self.__Q))})
+        fa2 = other.renameStates({f"p{i}" for i in range(len(other.Q))})
+        Sigma = fa1.Sigma | fa2.Sigma
+        Q = fa1.Q | fa2.Q | {"s"}
+        transitions = dict()
+        transitions.update(fa1.transitions)
+        transitions.update(fa2.transitions)
+        transitions["s", ""] = {fa1.q0, fa2.q0}
+        q0 = "s"
+        F = fa1.F | fa2.F
+        return E_NFA(Sigma, Q, transitions, q0, F)
+
 
 class E_NFA:
     def __init__(self, Sigma: set[str], Q: set[str], transitions: dict[tuple[str, str], set(str)], q0: str, F: set[str]):
@@ -132,6 +237,26 @@ class E_NFA:
         self.__epsilon_reachable = self.__get_epsilon_reachable()
         self.__epsilon_reachable_reversed = dict((q, set(q_ for (q_, qs) in self.__epsilon_reachable.items() if q in qs)) for q in self.__Q)
         self.__validate()
+
+    @property
+    def Sigma(self) -> set[str]:
+        return self.__Sigma
+
+    @property
+    def Q(self) -> set[str]:
+        return self.__Q
+
+    @property
+    def transitions(self) -> dict[tuple[str, str], str]:
+        return self.__transitions
+
+    @property
+    def q0(self) -> str:
+        return self.__q0
+
+    @property
+    def F(self) -> set[str]:
+        return self.__F
 
     def __validate(self):
         # valid stating state
@@ -153,7 +278,7 @@ class E_NFA:
         changes = True
         while changes:
             changes = False
-            for q in Q:
+            for q in self.__Q:
                 for q_eps_reachable in e_reachable[q].copy():
                     q_eps_reachable_new = self.__transitions.get((q_eps_reachable, ""))
                     if q_eps_reachable_new and len(q_eps_reachable_new - e_reachable[q]) >= 1:
@@ -169,13 +294,13 @@ class E_NFA:
             return qs
 
         for a in w:
-            qs = reduce(lambda x, y: x | y, (self.__epsilon_reachable[q] for q in qs))
+            qs = reduce(lambda x, y: x | y, (self.__epsilon_reachable[q] for q in qs), set())
             new_qs = set()
             for q in qs:
                 if (q, a) not in self.__transitions.keys():
                     continue
                 new_qs |= self.__transitions[(q, a)]
-            qs = reduce(lambda x, y: x | y, (self.__epsilon_reachable[q] for q in new_qs))
+            qs = reduce(lambda x, y: x | y, (self.__epsilon_reachable[q] for q in new_qs), set())
         return qs
 
     def accepts(self, w: str) -> bool:
@@ -205,19 +330,33 @@ class E_NFA:
         dfa = nfa.to_DFA()
         return dfa
 
+    def renameStates(self, Q_: set[str], inplace: bool = False) -> Optional[E_NFA]:
+        if len(self.__Q) != len(Q_):
+            raise ValueError(f"Number of renamed states ({len(Q_)}) must be same than number of old states ({len(self.__Q)})")
+        mapping = {q: q_ for (q, q_) in zip(self.__Q, Q_)}
+        q0 = mapping[self.__q0]
+        F = {mapping[q] for q in self.__F}
+        transitions = dict()
+        for ((q, a), qs) in self.__transitions.items():
+            transitions[(mapping[q], a)] = {mapping[qx] for qx in qs}
+        if not inplace:
+            Sigma = self.__Sigma
+            Q = Q_
+            return NFA(Sigma, Q, transitions, q0, F)
+        self.__Q = Q_
+        self.__q0 = q0
+        self.__F = F
+        self.__transitions = transitions
 
-if __name__ == "__main__":
-    Sigma = {"a", "b"}
-    Q = {"0", "1"}
-    q0 = "0"
-    F = {"1"}
-
-    transitions = {
-        ("0", "a"): "0",
-        ("0", "b"): "0",
-        ("1", "a"): "1",
-        ("1", "b"): "1"
-    }
-
-    A = DFA(Sigma, Q, transitions, q0, F)
-    B = A.to_E_NFA()
+    def union(self, other: E_NFA) -> E_NFA:
+        fa1 = self.renameStates({f"q{i}" for i in range(len(self.__Q))})
+        fa2 = other.renameStates({f"p{i}" for i in range(len(other.Q))})
+        Sigma = fa1.Sigma | fa2.Sigma
+        Q = fa1.Q | fa2.Q | {"s"}
+        transitions = dict()
+        transitions.update(fa1.transitions)
+        transitions.update(fa2.transitions)
+        transitions["s", ""] = {fa1.q0, fa2.q0}
+        q0 = "s"
+        F = fa1.F | fa2.F
+        return E_NFA(Sigma, Q, transitions, q0, F)
